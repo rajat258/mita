@@ -1,0 +1,452 @@
+diff --git a/node_modules/react-native-chart-kit/dist/line-chart/LineChart.d.ts b/node_modules/react-native-chart-kit/dist/line-chart/LineChart.d.ts
+index e09cf18..8b38fe1 100644
+--- a/node_modules/react-native-chart-kit/dist/line-chart/LineChart.d.ts
++++ b/node_modules/react-native-chart-kit/dist/line-chart/LineChart.d.ts
+@@ -123,6 +123,10 @@ export interface LineChartProps extends AbstractChartProps {
+         y: number;
+         getColor: (opacity: number) => string;
+     }) => void;
++    /**
++     * Callback that is called when the dot scroll is return the point value
++     */
++    onScrollDotPoint?: (data: { points: Array<number> }) => void;
+     /**
+      * Style of the container view of the chart.
+      */
+@@ -205,6 +209,7 @@ declare class LineChart extends AbstractChart<LineChartProps, LineChartState> {
+     renderScrollableDot: ({ data, width, height, paddingTop, paddingRight, scrollableDotHorizontalOffset, scrollableDotFill, scrollableDotStrokeColor, scrollableDotStrokeWidth, scrollableDotRadius, scrollableInfoViewStyle, scrollableInfoTextStyle, scrollableInfoTextDecorator, scrollableInfoSize, scrollableInfoOffset }: AbstractChartConfig & {
+         onDataPointClick: LineChartProps["onDataPointClick"];
+         scrollableDotHorizontalOffset: Animated.Value;
++        onScrollDotPoint: LineChartProps["onScrollDotPoint"];
+     }) => any[];
+     renderShadow: ({ width, height, paddingRight, paddingTop, data, useColorFromDataset }: Pick<AbstractChartConfig, "height" | "paddingRight" | "paddingTop" | "width" | "data"> & {
+         useColorFromDataset: AbstractChartConfig["useShadowColorFromDataset"];
+diff --git a/node_modules/react-native-chart-kit/dist/line-chart/LineChart.js b/node_modules/react-native-chart-kit/dist/line-chart/LineChart.js
+index 1ac4227..1796145 100644
+--- a/node_modules/react-native-chart-kit/dist/line-chart/LineChart.js
++++ b/node_modules/react-native-chart-kit/dist/line-chart/LineChart.js
+@@ -12,7 +12,7 @@ var __extends = (this && this.__extends) || (function () {
+     };
+ })();
+ var __assign = (this && this.__assign) || function () {
+-    __assign = Object.assign || function(t) {
++    __assign = Object.assign || function (t) {
+         for (var s, i = 1, n = arguments.length; i < n; i++) {
+             s = arguments[i];
+             for (var p in s) if (Object.prototype.hasOwnProperty.call(s, p))
+@@ -34,12 +34,17 @@ import { Animated, ScrollView, StyleSheet, TextInput, View } from "react-native"
+ import { Circle, G, Path, Polygon, Polyline, Rect, Svg } from "react-native-svg";
+ import AbstractChart from "../AbstractChart";
+ import { LegendItem } from "./LegendItem";
++var scrollableInfoSizeHeight = 20, scrollableInfoSizeWidth = 20;
+ var AnimatedCircle = Animated.createAnimatedComponent(Circle);
+ var LineChart = /** @class */ (function (_super) {
+     __extends(LineChart, _super);
+     function LineChart() {
+         var _this = _super !== null && _super.apply(this, arguments) || this;
++        _this.cursor = React.createRef();
+         _this.label = React.createRef();
++        _this.getStringFromFloor = function (data1, data2) {
++            return data1 + ', ' + data2;
++        }
+         _this.state = {
+             scrollableDotHorizontalOffset: new Animated.Value(0)
+         };
+@@ -94,13 +99,13 @@ var LineChart = /** @class */ (function (_super) {
+                     };
+                     output.push(<Circle key={Math.random()} cx={cx} cy={cy} fill={typeof getDotColor === "function"
+                         ? getDotColor(x, i)
+-                        : _this.getColor(dataset, 0.9)} onPress={onPress} {..._this.getPropsForDots(x, i)}/>, <Circle key={Math.random()} cx={cx} cy={cy} r="14" fill="#fff" fillOpacity={0} onPress={onPress}/>, renderDotContent({ x: cx, y: cy, index: i, indexData: x }));
++                        : _this.getColor(dataset, 0.9)} onPress={onPress} {..._this.getPropsForDots(x, i)} />, <Circle key={Math.random()} cx={cx} cy={cy} r="14" fill="#fff" fillOpacity={0} onPress={onPress} />, renderDotContent({ x: cx, y: cy, index: i, indexData: x }));
+                 });
+             });
+             return output;
+         };
+         _this.renderScrollableDot = function (_a) {
+-            var data = _a.data, width = _a.width, height = _a.height, paddingTop = _a.paddingTop, paddingRight = _a.paddingRight, scrollableDotHorizontalOffset = _a.scrollableDotHorizontalOffset, scrollableDotFill = _a.scrollableDotFill, scrollableDotStrokeColor = _a.scrollableDotStrokeColor, scrollableDotStrokeWidth = _a.scrollableDotStrokeWidth, scrollableDotRadius = _a.scrollableDotRadius, scrollableInfoViewStyle = _a.scrollableInfoViewStyle, scrollableInfoTextStyle = _a.scrollableInfoTextStyle, _b = _a.scrollableInfoTextDecorator, scrollableInfoTextDecorator = _b === void 0 ? function (x) { return "" + x; } : _b, scrollableInfoSize = _a.scrollableInfoSize, scrollableInfoOffset = _a.scrollableInfoOffset;
++            var data = _a.data, width = _a.width, height = _a.height, paddingTop = _a.paddingTop, paddingRight = _a.paddingRight, scrollableDotHorizontalOffset = _a.scrollableDotHorizontalOffset, scrollableDotFill = _a.scrollableDotFill, scrollableDotStrokeColor = _a.scrollableDotStrokeColor, scrollableDotStrokeWidth = _a.scrollableDotStrokeWidth, scrollableDotRadius = _a.scrollableDotRadius, scrollableInfoViewStyle = _a.scrollableInfoViewStyle, scrollableInfoTextStyle = _a.scrollableInfoTextStyle, _b = _a.scrollableInfoTextDecorator, scrollableInfoTextDecorator = _b === void 0 ? function (x) { return "" + x; } : _b, scrollableInfoSize = _a.scrollableInfoSize, scrollableInfoOffset = _a.scrollableInfoOffset, onScrollDotPoint = _a.onScrollDotPoint;
+             var output = [];
+             var datas = _this.getDatas(data);
+             var baseHeight = _this.calcBaseHeight(datas, height);
+@@ -117,10 +122,13 @@ var LineChart = /** @class */ (function (_super) {
+                 }
+                 var abs = Math.floor(index);
+                 var percent = index - abs;
++                // console.log('data of lable', JSON.stringify(data));
+                 abs = data[0].data.length - abs - 1;
+                 if (index >= data[0].data.length - 1) {
++                    onScrollDotPoint([(data[0].data[0]), (data[1].data[0]), Math.floor(index)])
+                     _this.label.current.setNativeProps({
+-                        text: scrollableInfoTextDecorator(Math.floor(data[0].data[0]))
++                        // text: scrollableInfoTextDecorator(Math.floor(data[0].data[0]))
++                        text: _this.getStringFromFloor((data[0].data[0]), (data[1].data[0]))
+                     });
+                 }
+                 else {
+@@ -128,16 +136,28 @@ var LineChart = /** @class */ (function (_super) {
+                         // to right
+                         var base = data[0].data[abs];
+                         var prev = data[0].data[abs - 1];
++                        var base1 = data[1].data[abs];
++                        var prev1 = data[1].data[abs - 1];
+                         if (prev > base) {
++                            // console.log('to right if');
+                             var rest = prev - base;
++                            var rest1 = prev1 - base1;
++                            onScrollDotPoint([(base + percent * rest), (base1 + percent * rest1), Math.floor(index)]);
+                             _this.label.current.setNativeProps({
+-                                text: scrollableInfoTextDecorator(Math.floor(base + percent * rest))
++                                // text: scrollableInfoTextDecorator(Math.floor(base + percent * rest))
++                                text: _this.getStringFromFloor((base + percent * rest), (base1 + percent * rest1))
+                             });
+                         }
+                         else {
++                            // console.log('to right else');
+                             var rest = base - prev;
++                            var rest1 = base1 - prev1;
++                            onScrollDotPoint([(base - percent * rest),
++                            (base1 - percent * rest1), Math.floor(index)]);
+                             _this.label.current.setNativeProps({
+-                                text: scrollableInfoTextDecorator(Math.floor(base - percent * rest))
++                                // text: scrollableInfoTextDecorator(Math.floor(base - percent * rest))
++                                text: _this.getStringFromFloor((base - percent * rest),
++                                    (base1 - percent * rest1))
+                             });
+                         }
+                     }
+@@ -145,24 +165,34 @@ var LineChart = /** @class */ (function (_super) {
+                         // to left
+                         var base = data[0].data[abs - 1];
+                         var next = data[0].data[abs];
++                        var base1 = data[1].data[abs - 1];
++                        var next1 = data[1].data[abs];
+                         percent = 1 - percent;
+                         if (next > base) {
++                            // console.log('to left if');
+                             var rest = next - base;
++                            var rest1 = next1 - base1;
++                            onScrollDotPoint([(base + percent * rest), (base1 + percent * rest1), Math.floor(index)]);
+                             _this.label.current.setNativeProps({
+-                                text: scrollableInfoTextDecorator(Math.floor(base + percent * rest))
++                                // text: scrollableInfoTextDecorator(Math.floor(base + percent * rest))
++                                text: _this.getStringFromFloor((base + percent * rest), (base1 + percent * rest1))
+                             });
+                         }
+                         else {
++                            // console.log('to left else');
+                             var rest = base - next;
++                            var rest1 = base1 - next1;
++                            onScrollDotPoint([(base - percent * rest), (base1 - percent * rest1), Math.floor(index)]);
+                             _this.label.current.setNativeProps({
+-                                text: scrollableInfoTextDecorator(Math.floor(base - percent * rest))
++                                // text: scrollableInfoTextDecorator(Math.floor(base - percent * rest))
++                                text: _this.getStringFromFloor((base - percent * rest), (base1 - percent * rest1))
+                             });
+                         }
+                     }
+                 }
+                 lastIndex = index;
+             });
+-            data.forEach(function (dataset) {
++            data.forEach(function (dataset, index) {
+                 if (dataset.withScrollableDot == false)
+                     return;
+                 var perData = width / dataset.data.length;
+@@ -181,7 +211,7 @@ var LineChart = /** @class */ (function (_super) {
+                     yValues.push(yval);
+                     var xval = paddingRight +
+                         ((dataset.data.length - index - 1) * (width - paddingRight)) /
+-                            dataset.data.length;
++                        dataset.data.length;
+                     xValues.push(xval);
+                     yValuesLabel.push(yval - (scrollableInfoSize.height + scrollableInfoOffset));
+                     xValuesLabel.push(xval - scrollableInfoSize.width / 2);
+@@ -206,6 +236,7 @@ var LineChart = /** @class */ (function (_super) {
+                     outputRange: yValuesLabel,
+                     extrapolate: "clamp"
+                 });
++
+                 output.push([
+                     <Animated.View key={Math.random()} style={[
+                         scrollableInfoViewStyle,
+@@ -218,13 +249,35 @@ var LineChart = /** @class */ (function (_super) {
+                             height: scrollableInfoSize.height
+                         }
+                     ]}>
+-          <TextInput onLayout={function () {
+-                        _this.label.current.setNativeProps({
+-                            text: scrollableInfoTextDecorator(Math.floor(data[0].data[data[0].data.length - 1]))
+-                        });
+-                    }} style={scrollableInfoTextStyle} ref={_this.label}/>
+-        </Animated.View>,
+-                    <AnimatedCircle key={Math.random()} cx={translateX} cy={translateY} r={scrollableDotRadius} stroke={scrollableDotStrokeColor} strokeWidth={scrollableDotStrokeWidth} fill={scrollableDotFill}/>
++                        <TextInput onLayout={function () {
++                            onScrollDotPoint([(data[0].data[data[0].data.length - 1]), (data[1].data[data[0].data.length - 1])]);
++                            _this.label.current.setNativeProps({
++                                // text: scrollableInfoTextDecorator((data[0].data[data[0].data.length - 1]))
++                                text: _this.getStringFromFloor((data[0].data[data[0].data.length - 1]), (data[1].data[data[0].data.length - 1]))
++                            });
++                        }} style={scrollableInfoTextStyle} ref={_this.label} />
++                    </Animated.View>,
++                    <Animated.View
++                        style={{
++                            position: 'absolute',
++                            height: 15,
++                            width: 15,
++                            backgroundColor: 'white',
++                            borderRadius: 10,
++                            marginTop: -7.5,
++                            borderWidth: 1,
++                            borderColor: 'blue',
++                            marginLeft: -7.5,
++
++                            transform: [
++                                { translateX: translateX },
++                                { translateY: translateY }
++                            ],
++                        }}
++                    // ref={_this.cursor}
++                    />
++
++                    // <AnimatedCircle key={Math.random()} cx={translateX} cy={translateY} r={scrollableDotRadius} stroke={scrollableDotStrokeColor} strokeWidth={scrollableDotStrokeWidth} fill={scrollableDotFill} />
+                 ]);
+             });
+             return output;
+@@ -246,17 +299,17 @@ var LineChart = /** @class */ (function (_super) {
+             return data.map(function (dataset, index) {
+                 return (<Polygon key={index} points={dataset.data
+                     .map(function (d, i) {
+-                    var x = paddingRight +
+-                        (i * (width - paddingRight)) / dataset.data.length;
+-                    var y = ((baseHeight - _this.calcHeight(d, datas, height)) / 4) * 3 +
+-                        paddingTop;
+-                    return x + "," + y;
+-                })
++                        var x = paddingRight +
++                            (i * (width - paddingRight)) / dataset.data.length;
++                        var y = ((baseHeight - _this.calcHeight(d, datas, height)) / 4) * 3 +
++                            paddingTop;
++                        return x + "," + y;
++                    })
+                     .join(" ") +
+                     (" " + (paddingRight +
+                         ((width - paddingRight) / dataset.data.length) *
+-                            (dataset.data.length - 1)) + "," + ((height / 4) * 3 +
+-                        paddingTop) + " " + paddingRight + "," + ((height / 4) * 3 + paddingTop))} fill={"url(#fillShadowGradientFrom" + (useColorFromDataset ? "_" + index : "") + ")"} strokeWidth={0}/>);
++                        (dataset.data.length - 1)) + "," + ((height / 4) * 3 +
++                            paddingTop) + " " + paddingRight + "," + ((height / 4) * 3 + paddingTop))} fill={"url(#fillShadowGradientFrom" + (useColorFromDataset ? "_" + index : "") + ")"} strokeWidth={0} />);
+             });
+         };
+         _this.renderLine = function (_a) {
+@@ -285,7 +338,7 @@ var LineChart = /** @class */ (function (_super) {
+                     lastPoint = x + "," + y;
+                     return x + "," + y;
+                 });
+-                output.push(<Polyline key={index} strokeLinejoin={linejoinType} points={points.join(" ")} fill="none" stroke={_this.getColor(dataset, 0.2)} strokeWidth={_this.getStrokeWidth(dataset)} strokeDasharray={dataset.strokeDashArray} strokeDashoffset={dataset.strokeDashOffset}/>);
++                output.push(<Polyline key={index} strokeLinejoin={linejoinType} points={points.join(" ")} fill="none" stroke={_this.getColor(dataset, 0.2)} strokeWidth={_this.getStrokeWidth(dataset)} strokeDasharray={dataset.strokeDashArray} strokeDashoffset={dataset.strokeDashOffset} />);
+             });
+             return output;
+         };
+@@ -311,13 +364,13 @@ var LineChart = /** @class */ (function (_super) {
+             };
+             return ["M" + x(0) + "," + y(0)]
+                 .concat(dataset.data.slice(0, -1).map(function (_, i) {
+-                var x_mid = (x(i) + x(i + 1)) / 2;
+-                var y_mid = (y(i) + y(i + 1)) / 2;
+-                var cp_x1 = (x_mid + x(i)) / 2;
+-                var cp_x2 = (x_mid + x(i + 1)) / 2;
+-                return ("Q " + cp_x1 + ", " + y(i) + ", " + x_mid + ", " + y_mid +
+-                    (" Q " + cp_x2 + ", " + y(i + 1) + ", " + x(i + 1) + ", " + y(i + 1)));
+-            }))
++                    var x_mid = (x(i) + x(i + 1)) / 2;
++                    var y_mid = (y(i) + y(i + 1)) / 2;
++                    var cp_x1 = (x_mid + x(i)) / 2;
++                    var cp_x2 = (x_mid + x(i + 1)) / 2;
++                    return ("Q " + cp_x1 + ", " + y(i) + ", " + x_mid + ", " + y_mid +
++                        (" Q " + cp_x2 + ", " + y(i + 1) + ", " + x(i + 1) + ", " + y(i + 1)));
++                }))
+                 .join(" ");
+         };
+         _this.renderBezierLine = function (_a) {
+@@ -330,7 +383,7 @@ var LineChart = /** @class */ (function (_super) {
+                     paddingTop: paddingTop,
+                     data: data
+                 });
+-                return (<Path key={index} d={result} fill="none" stroke={_this.getColor(dataset, 0.2)} strokeWidth={_this.getStrokeWidth(dataset)} strokeDasharray={dataset.strokeDashArray} strokeDashoffset={dataset.strokeDashOffset}/>);
++                return (<Path key={index} d={result} fill="none" stroke={_this.getColor(dataset, 1)} strokeWidth={_this.getStrokeWidth(dataset)} strokeDasharray={dataset.strokeDashArray} strokeDashoffset={dataset.strokeDashOffset} />);
+             });
+         };
+         _this.renderBezierShadow = function (_a) {
+@@ -346,22 +399,24 @@ var LineChart = /** @class */ (function (_super) {
+                 }) +
+                     (" L" + (paddingRight +
+                         ((width - paddingRight) / xMax) *
+-                            (dataset.data.length - 1)) + "," + ((height / 4) * 3 +
+-                        paddingTop) + " L" + paddingRight + "," + ((height / 4) * 3 + paddingTop) + " Z");
+-                return (<Path key={index} d={d} fill={"url(#fillShadowGradientFrom" + (useColorFromDataset ? "_" + index : "") + ")"} strokeWidth={0}/>);
++                        (dataset.data.length - 1)) + "," + ((height / 4) * 3 +
++                            paddingTop) + " L" + paddingRight + "," + ((height / 4) * 3 + paddingTop) + " Z");
++                return (<Path key={index} d={d} fill={"url(#fillShadowGradientFrom" + (useColorFromDataset ? "_" + index : "") + ")"} strokeWidth={0} />);
+             });
+         };
+         _this.renderLegend = function (width, legendOffset) {
+             var _a = _this.props.data, legend = _a.legend, datasets = _a.datasets;
+             var baseLegendItemX = width / (legend.length + 1);
+-            return legend.map(function (legendItem, i) { return (<G key={Math.random()}>
+-        <LegendItem index={i} iconColor={_this.getColor(datasets[i], 0.9)} baseLegendItemX={baseLegendItemX} legendText={legendItem} labelProps={__assign({}, _this.getPropsForLabels())} legendOffset={legendOffset}/>
+-      </G>); });
++            return legend.map(function (legendItem, i) {
++                return (<G key={Math.random()}>
++                    <LegendItem index={i} iconColor={_this.getColor(datasets[i], 0.9)} baseLegendItemX={baseLegendItemX} legendText={legendItem} labelProps={__assign({}, _this.getPropsForLabels())} legendOffset={legendOffset} />
++                </G>);
++            });
+         };
+         return _this;
+     }
+     LineChart.prototype.render = function () {
+-        var _a = this.props, width = _a.width, height = _a.height, data = _a.data, _b = _a.withScrollableDot, withScrollableDot = _b === void 0 ? false : _b, _c = _a.withShadow, withShadow = _c === void 0 ? true : _c, _d = _a.withDots, withDots = _d === void 0 ? true : _d, _e = _a.withInnerLines, withInnerLines = _e === void 0 ? true : _e, _f = _a.withOuterLines, withOuterLines = _f === void 0 ? true : _f, _g = _a.withHorizontalLines, withHorizontalLines = _g === void 0 ? true : _g, _h = _a.withVerticalLines, withVerticalLines = _h === void 0 ? true : _h, _j = _a.withHorizontalLabels, withHorizontalLabels = _j === void 0 ? true : _j, _k = _a.withVerticalLabels, withVerticalLabels = _k === void 0 ? true : _k, _l = _a.style, style = _l === void 0 ? {} : _l, decorator = _a.decorator, onDataPointClick = _a.onDataPointClick, _m = _a.verticalLabelRotation, verticalLabelRotation = _m === void 0 ? 0 : _m, _o = _a.horizontalLabelRotation, horizontalLabelRotation = _o === void 0 ? 0 : _o, _p = _a.formatYLabel, formatYLabel = _p === void 0 ? function (yLabel) { return yLabel; } : _p, _q = _a.formatXLabel, formatXLabel = _q === void 0 ? function (xLabel) { return xLabel; } : _q, segments = _a.segments, _r = _a.transparent, transparent = _r === void 0 ? false : _r, chartConfig = _a.chartConfig;
++        var _a = this.props, width = _a.width, height = _a.height, data = _a.data, _b = _a.withScrollableDot, withScrollableDot = _b === void 0 ? false : _b, _c = _a.withShadow, withShadow = _c === void 0 ? true : _c, _d = _a.withDots, withDots = _d === void 0 ? true : _d, _e = _a.withInnerLines, withInnerLines = _e === void 0 ? true : _e, _f = _a.withOuterLines, withOuterLines = _f === void 0 ? true : _f, _g = _a.withHorizontalLines, withHorizontalLines = _g === void 0 ? true : _g, _h = _a.withVerticalLines, withVerticalLines = _h === void 0 ? true : _h, _j = _a.withHorizontalLabels, withHorizontalLabels = _j === void 0 ? true : _j, _k = _a.withVerticalLabels, withVerticalLabels = _k === void 0 ? true : _k, _l = _a.style, style = _l === void 0 ? {} : _l, decorator = _a.decorator, onDataPointClick = _a.onDataPointClick, _m = _a.verticalLabelRotation, verticalLabelRotation = _m === void 0 ? 0 : _m, _o = _a.horizontalLabelRotation, horizontalLabelRotation = _o === void 0 ? 0 : _o, _p = _a.formatYLabel, formatYLabel = _p === void 0 ? function (yLabel) { return yLabel; } : _p, _q = _a.formatXLabel, formatXLabel = _q === void 0 ? function (xLabel) { return xLabel; } : _q, segments = _a.segments, _r = _a.transparent, transparent = _r === void 0 ? false : _r, chartConfig = _a.chartConfig, onScrollDotPoint = _a.onScrollDotPoint;
+         var scrollableDotHorizontalOffset = this.state.scrollableDotHorizontalOffset;
+         var _s = data.labels, labels = _s === void 0 ? [] : _s;
+         var _t = style.borderRadius, borderRadius = _t === void 0 ? 0 : _t, _u = style.paddingTop, paddingTop = _u === void 0 ? 16 : _u, _v = style.paddingRight, paddingRight = _v === void 0 ? 64 : _v, _w = style.margin, margin = _w === void 0 ? 0 : _w, _x = style.marginRight, marginRight = _x === void 0 ? 0 : _x, _y = style.paddingBottom, paddingBottom = _y === void 0 ? 0 : _y;
+@@ -378,69 +433,78 @@ var LineChart = /** @class */ (function (_super) {
+         }
+         var legendOffset = this.props.data.legend ? height * 0.15 : 0;
+         return (<View style={style}>
+-        <Svg height={height + paddingBottom + legendOffset} width={width - margin * 2 - marginRight}>
+-          <Rect width="100%" height={height + legendOffset} rx={borderRadius} ry={borderRadius} fill="url(#backgroundGradient)" fillOpacity={transparent ? 0 : 1}/>
+-          {this.props.data.legend &&
+-            this.renderLegend(config.width, legendOffset)}
+-          <G x="0" y={legendOffset}>
+-            {this.renderDefs(__assign(__assign(__assign({}, config), chartConfig), { data: data.datasets }))}
+-            <G>
+-              {withHorizontalLines &&
+-            (withInnerLines
+-                ? this.renderHorizontalLines(__assign(__assign({}, config), { count: count, paddingTop: paddingTop,
+-                    paddingRight: paddingRight }))
+-                : withOuterLines
+-                    ? this.renderHorizontalLine(__assign(__assign({}, config), { paddingTop: paddingTop,
+-                        paddingRight: paddingRight }))
+-                    : null)}
+-            </G>
+-            <G>
+-              {withHorizontalLabels &&
+-            this.renderHorizontalLabels(__assign(__assign({}, config), { count: count, data: datas, paddingTop: paddingTop, paddingRight: paddingRight, formatYLabel: formatYLabel, decimalPlaces: chartConfig.decimalPlaces }))}
+-            </G>
+-            <G>
+-              {withVerticalLines &&
+-            (withInnerLines
+-                ? this.renderVerticalLines(__assign(__assign({}, config), { data: data.datasets[0].data, paddingTop: paddingTop, paddingRight: paddingRight }))
+-                : withOuterLines
+-                    ? this.renderVerticalLine(__assign(__assign({}, config), { paddingTop: paddingTop, paddingRight: paddingRight }))
+-                    : null)}
+-            </G>
+-            <G>
+-              {withVerticalLabels &&
+-            this.renderVerticalLabels(__assign(__assign({}, config), { labels: labels, paddingTop: paddingTop, paddingRight: paddingRight, formatXLabel: formatXLabel }))}
+-            </G>
+-            <G>
+-              {this.renderLine(__assign(__assign(__assign({}, config), chartConfig), { paddingRight: paddingRight, paddingTop: paddingTop, data: data.datasets }))}
+-            </G>
+-            <G>
+-              {withShadow &&
+-            this.renderShadow(__assign(__assign({}, config), { data: data.datasets, paddingRight: paddingRight, paddingTop: paddingTop, useColorFromDataset: chartConfig.useShadowColorFromDataset }))}
+-            </G>
+-            <G>
+-              {withDots &&
+-            this.renderDots(__assign(__assign({}, config), { data: data.datasets, paddingTop: paddingTop, paddingRight: paddingRight, onDataPointClick: onDataPointClick }))}
+-            </G>
+-            <G>
+-              {withScrollableDot &&
+-            this.renderScrollableDot(__assign(__assign(__assign({}, config), chartConfig), { data: data.datasets, paddingTop: paddingTop, paddingRight: paddingRight, onDataPointClick: onDataPointClick,
+-                scrollableDotHorizontalOffset: scrollableDotHorizontalOffset }))}
+-            </G>
+-            <G>
+-              {decorator &&
+-            decorator(__assign(__assign({}, config), { data: data.datasets, paddingTop: paddingTop,
+-                paddingRight: paddingRight }))}
+-            </G>
+-          </G>
+-        </Svg>
+-        {withScrollableDot && (<ScrollView style={StyleSheet.absoluteFill} contentContainerStyle={{ width: width * 2 }} showsHorizontalScrollIndicator={false} scrollEventThrottle={16} onScroll={Animated.event([
+-            {
+-                nativeEvent: {
+-                    contentOffset: { x: scrollableDotHorizontalOffset }
++            <Svg height={height + paddingBottom + legendOffset} width={width - margin * 2 - marginRight}>
++                <Rect width="100%" height={height + legendOffset} rx={borderRadius} ry={borderRadius} fill="url(#backgroundGradient)" fillOpacity={transparent ? 0 : 1} />
++                {this.props.data.legend &&
++                    this.renderLegend(config.width, legendOffset)}
++                <G x="0" y={legendOffset}>
++                    {this.renderDefs(__assign(__assign(__assign({}, config), chartConfig), { data: data.datasets }))}
++                    <G>
++                        {withHorizontalLines &&
++                            (withInnerLines
++                                ? this.renderHorizontalLines(__assign(__assign({}, config), {
++                                    count: count, paddingTop: paddingTop,
++                                    paddingRight: paddingRight
++                                }))
++                                : withOuterLines
++                                    ? this.renderHorizontalLine(__assign(__assign({}, config), {
++                                        paddingTop: paddingTop,
++                                        paddingRight: paddingRight
++                                    }))
++                                    : null)}
++                    </G>
++                    <G>
++                        {withHorizontalLabels &&
++                            this.renderHorizontalLabels(__assign(__assign({}, config), { count: count, data: datas, paddingTop: paddingTop, paddingRight: paddingRight, formatYLabel: formatYLabel, decimalPlaces: chartConfig.decimalPlaces }))}
++                    </G>
++                    <G>
++                        {withVerticalLines &&
++                            (withInnerLines
++                                ? this.renderVerticalLines(__assign(__assign({}, config), { data: data.datasets[0].data, paddingTop: paddingTop, paddingRight: paddingRight }))
++                                : withOuterLines
++                                    ? this.renderVerticalLine(__assign(__assign({}, config), { paddingTop: paddingTop, paddingRight: paddingRight }))
++                                    : null)}
++                    </G>
++                    <G>
++                        {withVerticalLabels &&
++                            this.renderVerticalLabels(__assign(__assign({}, config), { labels: labels, paddingTop: paddingTop, paddingRight: paddingRight, formatXLabel: formatXLabel }))}
++                    </G>
++                    <G>
++                        {this.renderLine(__assign(__assign(__assign({}, config), chartConfig), { paddingRight: paddingRight, paddingTop: paddingTop, data: data.datasets }))}
++                    </G>
++                    <G>
++                        {withShadow &&
++                            this.renderShadow(__assign(__assign({}, config), { data: data.datasets, paddingRight: paddingRight, paddingTop: paddingTop, useColorFromDataset: chartConfig.useShadowColorFromDataset }))}
++                    </G>
++                    <G>
++                        {withDots &&
++                            this.renderDots(__assign(__assign({}, config), { data: data.datasets, paddingTop: paddingTop, paddingRight: paddingRight, onDataPointClick: onDataPointClick }))}
++                    </G>
++                    <G>
++                        {withScrollableDot &&
++                            this.renderScrollableDot(__assign(__assign(__assign({}, config), chartConfig), {
++                                data: data.datasets, paddingTop: paddingTop, paddingRight: paddingRight, onDataPointClick: onDataPointClick,
++                                scrollableDotHorizontalOffset: scrollableDotHorizontalOffset,
++                                onScrollDotPoint: onScrollDotPoint
++                            }))}
++                    </G>
++                    <G>
++                        {decorator &&
++                            decorator(__assign(__assign({}, config), {
++                                data: data.datasets, paddingTop: paddingTop,
++                                paddingRight: paddingRight
++                            }))}
++                    </G>
++                </G>
++            </Svg>
++            {withScrollableDot && (<ScrollView style={StyleSheet.absoluteFill} contentContainerStyle={{ width: width * 2 }} showsHorizontalScrollIndicator={false} scrollEventThrottle={16} onScroll={Animated.event([
++                {
++                    nativeEvent: {
++                        contentOffset: { x: scrollableDotHorizontalOffset }
++                    }
+                 }
+-            }
+-        ], { useNativeDriver: false })} horizontal bounces={false}/>)}
+-      </View>);
++            ], { useNativeDriver: false })} horizontal bounces={false} />)}
++        </View>);
+     };
+     return LineChart;
+ }(AbstractChart));

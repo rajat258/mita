@@ -1,0 +1,15 @@
+export const ICONS = {
+  play: require('./play.png'),
+  info: require('./info.png'),
+  rightArrow: require('./right-arrow.png'),
+  leftArrow: require('./left-arrow.png'),
+  star: require('./star.png'),
+  export: require('./export.png'),
+  close: require('./close.png'),
+  caretArrowUp: require('./caret-arrow-up.png'),
+  caretArrowDown: require('./caret-arrow-down.png'),
+  document: require('./document.png'),
+  mitaLogo: require('./mita-logo.png'),
+  magnifyingGlass: require('./magnifying-glass.png'),
+  portfolio: require('./portfolio.png'),
+};

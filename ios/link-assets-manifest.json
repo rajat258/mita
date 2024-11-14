@@ -1,0 +1,37 @@
+{
+  "migIndex": 1,
+  "data": [
+    {
+      "path": "src/assets/fonts/HelveticaNowDisplay-Black.ttf",
+      "sha1": "a6b8c9680b7931b667007a1e7f22b96cef145c29"
+    },
+    {
+      "path": "src/assets/fonts/HelveticaNowDisplay-Bold.ttf",
+      "sha1": "8248b0b2e9ae92c269ebbf91153d0ea4db4d988f"
+    },
+    {
+      "path": "src/assets/fonts/HelveticaNowDisplay-ExtraBold.ttf",
+      "sha1": "dfcea144512ac398f2a271da2cec0a3253189ec0"
+    },
+    {
+      "path": "src/assets/fonts/HelveticaNowDisplay-Medium.ttf",
+      "sha1": "13cb7b8ca80cddda1acb0e4c127680e0cf89092a"
+    },
+    {
+      "path": "src/assets/fonts/HelveticaNowDisplay-Regular.ttf",
+      "sha1": "6f45727ba77048302665ba3ddc61c117fb5fe7cc"
+    },
+    {
+      "path": "src/assets/fonts/NHaasGroteskDSPro-55Rg.otf",
+      "sha1": "b6e64f941617af9cb53b42fe2a4467565110cba3"
+    },
+    {
+      "path": "src/assets/fonts/NHaasGroteskDSPro-65Md.otf",
+      "sha1": "219ab00848f93d233316982969ec6b442824f70d"
+    },
+    {
+      "path": "src/assets/fonts/NHaasGroteskDSPro-75Bd.otf",
+      "sha1": "965480b29206e93558af098d5ae83f3fd0ffd373"
+    }
+  ]
+}
